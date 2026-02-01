@@ -194,22 +194,22 @@ Your code takes those arguments, calls mermkit, and sends the result back. The L
 
 ### MCP compatibility
 
-mermkit ships an MCP server over stdio. Any MCP-compatible host (Claude Desktop, Cursor, etc.) can use it directly.
+mermkit ships an MCP server over stdio. Any MCP-compatible host can use it directly.
 
-**Claude Desktop configuration:**
+**MCP host configuration (example):**
 
 ```json
 {
   "mcpServers": {
     "mermkit": {
       "command": "npx",
-      "args": ["@mermkit/cli", "mcp"]
+      "args": ["-y", "@mermkit/cli@0.2.2", "mcp"]
     }
   }
 }
 ```
 
-Once connected, the host gains access to the same five tools listed above. In MCP hosts that restrict tool names, they are exposed as `mermkit_render`, `mermkit_renderBatch`, `mermkit_extract`, `mermkit_term`, and `mermkit_schema`. The MCP server reuses the same rendering and extraction logic as `serve` — it is a format translation layer (JSON-RPC 2.0) with no additional dependencies.
+Once connected, the host gains access to the same five tools listed above. For hosts that restrict tool names, they are exposed as `mermkit_render`, `mermkit_renderBatch`, `mermkit_extract`, `mermkit_term`, and `mermkit_schema`. The MCP server reuses the same rendering and extraction logic as `serve` — it is a format translation layer (JSON-RPC 2.0) with no additional dependencies.
 
 ## Preview server
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { watch } from "node:fs";
+import { readFileSync, watch } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -11,6 +11,8 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { extractDiagrams, normalizeDiagram } from "@mermkit/core";
 import { render, renderForTerminal } from "@mermkit/render";
+
+const PACKAGE_VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
 type Flags = Record<string, string | boolean>;
 
@@ -753,11 +755,15 @@ function writeMcpResponse(response: JsonRpcResponse): void {
   stdout.write(`${JSON.stringify(response)}\n`);
 }
 
+function shouldRespondToId(id: unknown): id is string | number {
+  return typeof id === "string" || typeof id === "number";
+}
+
 function maybeWriteMcpResponse(
-  id: string | number | undefined,
+  id: unknown,
   response: Omit<JsonRpcResponse, "id">
 ): void {
-  if (typeof id !== "string" && typeof id !== "number") return;
+  if (!shouldRespondToId(id)) return;
   writeMcpResponse({ ...response, id });
 }
 
@@ -776,7 +782,8 @@ function getMcpToolNameMap(): Map<string, string> {
   return MCP_TOOL_NAME_MAP;
 }
 
-function resolveMcpToolName(name: string): string {
+function resolveMcpToolName(name: unknown): string | undefined {
+  if (typeof name !== "string") return undefined;
   if (name.includes(".")) return name;
   return getMcpToolNameMap().get(name) ?? name;
 }
@@ -799,10 +806,18 @@ async function cmdMcp(): Promise<void> {
     try {
       request = JSON.parse(trimmed) as JsonRpcRequest;
     } catch (error) {
+      stderr.write(`mcp parse error: ${errorMessage(error)}\n`);
       continue;
     }
 
     const id = request.id;
+    if (!request.method || typeof request.method !== "string") {
+      maybeWriteMcpResponse(id, {
+        jsonrpc: "2.0",
+        error: { code: -32600, message: "invalid request: missing method" }
+      });
+      continue;
+    }
 
     if (request.method === "initialize") {
       maybeWriteMcpResponse(id, {
@@ -810,7 +825,7 @@ async function cmdMcp(): Promise<void> {
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
-          serverInfo: { name: "mermkit", version: "0.1.0" }
+          serverInfo: { name: "mermkit", version: PACKAGE_VERSION }
         }
       });
       continue;
@@ -826,10 +841,13 @@ async function cmdMcp(): Promise<void> {
 
     if (request.method === "tools/call") {
       const params = request.params ?? {};
-      const toolName = resolveMcpToolName(params.name as string);
+      const toolName = resolveMcpToolName((params as { name?: unknown }).name);
       const toolInput = (params.input ?? {}) as Record<string, unknown>;
 
       try {
+        if (!toolName) {
+          throw new Error("invalid request: tools/call requires a tool name");
+        }
         const content = await executeMcpTool(toolName, toolInput);
         maybeWriteMcpResponse(id, { jsonrpc: "2.0", result: { content } });
       } catch (error) {
