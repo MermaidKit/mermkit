@@ -29,23 +29,6 @@ Mermaid is great in docs, but it’s painful in:
 
 ## Quickstart
 
-### CLI (from source)
-
-```
-# install deps and build
-npm install
-npm run build
-
-# render to svg
-node packages/cli/dist/cli.js render --in examples/basic/diagram.mmd --out diagram.svg
-
-# extract all Mermaid blocks from markdown
-node packages/cli/dist/cli.js extract --in examples/basic/diagram.md --out-dir diagrams/
-
-# preview server
-node packages/cli/dist/cli.js preview --in examples/basic/diagram.mmd --port 7070
-```
-
 ### CLI (installed package)
 
 ```
@@ -77,16 +60,12 @@ node packages/cli/dist/cli.js tool-schema --format openai
 ## CLI usage
 
 ```
-# installed package
 mermkit render --in diagram.mmd --out diagram.svg
 mermkit render --stdin --format png --out out.png
 mermkit render --in diagram.mmd --format ascii
 mermkit extract --in README.md --out-dir diagrams/
 mermkit term --in diagram.mmd
 mermkit preview --in diagram.mmd --port 7070
-
-# from source
-node packages/cli/dist/cli.js render --in examples/basic/diagram.mmd --out diagram.svg
 ```
 
 ## Adapters (Slack/Discord/GitHub)
@@ -141,7 +120,7 @@ See `docs/agents.md` for SDK snippets.
 
 ## Thanks
 
-ASCII rendering is based on `mermaid-ascii` by Alexander Grooff, ported from Go to TypeScript and extended—thank you, Alexander!
+ASCII rendering is based on [`mermaid-ascii`](https://github.com/AlexanderGrooff/mermaid-ascii) by Alexander Grooff, ported from Go to TypeScript and extended—thank you, Alexander!
 
 ## Repo layout
 
