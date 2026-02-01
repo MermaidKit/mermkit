@@ -489,11 +489,11 @@ const result = await render(
 <section class="section" id="mcp">
   <div class="container">
     <h2>MCP setup</h2>
-    <p class="subtitle">Expose mermkit as an MCP server over stdio.</p>
+    <p class="subtitle">Expose mermkit as an MCP server over stdio. Use the latest CLI version.</p>
 
     <div class="install-block">
       <div class="install-label">command</div>
-      <pre><code>npx -y @mermkit/cli@0.2.3 mcp</code></pre>
+      <pre><code>npx -y @mermkit/cli mcp</code></pre>
     </div>
     <div class="install-block">
       <div class="install-label">MCP host config</div>
@@ -501,7 +501,7 @@ const result = await render(
   "mcpServers": {
     "mermkit": {
       "command": "npx",
-      "args": ["-y", "@mermkit/cli@0.2.3", "mcp"]
+      "args": ["-y", "@mermkit/cli", "mcp"]
     }
   }
 }</code></pre>
