@@ -4,7 +4,7 @@
 
 # mermkit
 
-Agent-first Mermaid rendering for terminals, chats, and CI.
+Agent-friendly Mermaid rendering for terminals, chats, and CI.
 
 ![CI](https://github.com/MermaidKit/mermkit/actions/workflows/ci.yml/badge.svg)
 
@@ -23,7 +23,7 @@ Mermaid is great in docs, but it’s painful in:
 - Render Mermaid to **SVG/PNG/PDF/ASCII** (deterministic, pinned versions)
 - Terminal output via **inline images** (Kitty/iTerm2/WezTerm) with ASCII/Unicode fallback
 - **Chat adapters** for Slack, Discord, GitHub comments
-- **Agent-first** JSON IPC (`mermkit serve`), batch rendering, tool schemas
+- **Agent-friendly** JSON IPC (`mermkit serve`), batch rendering, tool schemas
 - **Preview server** with live reload and engine/theme/format toggles
 - **Language bindings**: Python, Go, Rust
 
@@ -130,7 +130,7 @@ registerEngine({
 });
 ```
 
-## Agent-first workflows
+## Agent-friendly workflows
 
 - `mermkit serve` (JSON IPC) for long-running processes
 - `renderBatch` to process multiple diagrams in one request
