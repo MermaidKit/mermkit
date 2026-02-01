@@ -493,18 +493,26 @@ const result = await render(
 
     <div class="install-block">
       <div class="install-label">command</div>
-      <pre><code>npx @mermkit/cli mcp</code></pre>
+      <pre><code>npx -y @mermkit/cli@0.2.3 mcp</code></pre>
     </div>
     <div class="install-block">
-      <div class="install-label">Claude Desktop config</div>
+      <div class="install-label">MCP host config</div>
       <pre><code>{
   "mcpServers": {
     "mermkit": {
       "command": "npx",
-      "args": ["@mermkit/cli", "mcp"]
+      "args": ["-y", "@mermkit/cli@0.2.3", "mcp"]
     }
   }
 }</code></pre>
+    </div>
+    <div class="install-block">
+      <div class="install-label">tool names</div>
+      <pre><code>mermkit_render
+mermkit_renderBatch
+mermkit_extract
+mermkit_term
+mermkit_schema</code></pre>
     </div>
   </div>
 </section>

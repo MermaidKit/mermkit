@@ -1,6 +1,6 @@
 [package]
 name = "mermkit"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 description = "Rust bindings for mermkit (Mermaid rendering toolkit)"
 license = "MIT"
