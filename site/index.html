@@ -485,6 +485,30 @@ const result = await render(
   </div>
 </section>
 
+<!-- MCP setup -->
+<section class="section" id="mcp">
+  <div class="container">
+    <h2>MCP setup</h2>
+    <p class="subtitle">Expose mermkit as an MCP server over stdio.</p>
+
+    <div class="install-block">
+      <div class="install-label">command</div>
+      <pre><code>npx @mermkit/cli mcp</code></pre>
+    </div>
+    <div class="install-block">
+      <div class="install-label">Claude Desktop config</div>
+      <pre><code>{
+  "mcpServers": {
+    "mermkit": {
+      "command": "npx",
+      "args": ["@mermkit/cli", "mcp"]
+    }
+  }
+}</code></pre>
+    </div>
+  </div>
+</section>
+
 <!-- Engine Comparison -->
 <section class="section" id="engines">
   <div class="container">
