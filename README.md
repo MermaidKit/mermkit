@@ -203,7 +203,7 @@ mermkit ships an MCP server over stdio. Any MCP-compatible host can use it direc
   "mcpServers": {
     "mermkit": {
       "command": "npx",
-      "args": ["-y", "@mermkit/cli@0.2.2", "mcp"]
+      "args": ["-y", "@mermkit/cli@0.2.3", "mcp"]
     }
   }
 }
