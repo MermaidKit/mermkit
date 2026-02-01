@@ -4,7 +4,7 @@
 
 # mermkit
 
-Agent-friendly Mermaid rendering for terminals, chats, and CI.
+Mermaid rendering for terminals, chats, and CI — with agent-friendly tooling.
 
 ![CI](https://github.com/MermaidKit/mermkit/actions/workflows/ci.yml/badge.svg)
 
