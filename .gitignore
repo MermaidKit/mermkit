@@ -6,3 +6,5 @@ node_modules
 packages/*/dist
 __pycache__/
 *.pyc
+.env
+.env.*
