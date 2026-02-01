@@ -118,8 +118,8 @@ export async function render(diagram: Diagram, options: RenderOptions): Promise<
   const engines = listEngines();
   const failures: string[] = [];
   for (const engine of engines) {
-    // Skip ASCII engine in auto mode (it's only used explicitly or via format: "ascii")
-    if (engine.id === "ascii") continue;
+    // Skip ASCII/stub engines in auto mode (they're only used explicitly or via format: "ascii")
+    if (engine.id === "ascii" || engine.id === "stub") continue;
 
     try {
       const result = await engine.render(diagram, options);
@@ -547,38 +547,48 @@ async function resolveEmbeddedDeps(): Promise<{
 
 function setDomGlobals(dom: import("jsdom").JSDOM): () => void {
   const g = globalThis as Record<string, unknown>;
-  const previous = {
-    window: g.window,
-    document: g.document,
-    navigator: g.navigator,
-    DOMParser: g.DOMParser,
-    XMLSerializer: g.XMLSerializer,
-    Node: g.Node,
-    Element: g.Element,
-    SVGElement: g.SVGElement,
-    DOMPurify: g.DOMPurify
+  const window = dom.window;
+
+  const keys = ["window", "document", "navigator", "DOMParser", "XMLSerializer", "Node", "Element", "SVGElement"];
+  const previous = new Map<string, unknown>();
+  const assigned = new Set<string>();
+
+  const assignGlobal = (key: string, value: unknown) => {
+    const desc = Object.getOwnPropertyDescriptor(globalThis, key);
+    previous.set(key, (g as Record<string, unknown>)[key]);
+    if (!desc || desc.writable || desc.configurable) {
+      try {
+        (g as Record<string, unknown>)[key] = value;
+        assigned.add(key);
+        return;
+      } catch {
+        // fall through to defineProperty
+      }
+      try {
+        Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
+        assigned.add(key);
+        return;
+      } catch {
+        // ignore assignment failures (e.g., read-only globals)
+      }
+    }
   };
 
-  const window = dom.window;
-  g.window = window;
-  g.document = window.document;
-  g.navigator = window.navigator;
-  g.DOMParser = window.DOMParser;
-  g.XMLSerializer = window.XMLSerializer;
-  g.Node = window.Node;
-  g.Element = window.Element;
-  g.SVGElement = window.SVGElement;
+  assignGlobal("window", window);
+  assignGlobal("document", window.document);
+  assignGlobal("navigator", window.navigator);
+  assignGlobal("DOMParser", window.DOMParser);
+  assignGlobal("XMLSerializer", window.XMLSerializer);
+  assignGlobal("Node", window.Node);
+  assignGlobal("Element", window.Element);
+  assignGlobal("SVGElement", window.SVGElement);
 
   return () => {
-    g.window = previous.window;
-    g.document = previous.document;
-    g.navigator = previous.navigator;
-    g.DOMParser = previous.DOMParser;
-    g.XMLSerializer = previous.XMLSerializer;
-    g.Node = previous.Node;
-    g.Element = previous.Element;
-    g.SVGElement = previous.SVGElement;
-    g.DOMPurify = previous.DOMPurify;
+    for (const key of keys) {
+      if (!assigned.has(key)) continue;
+      (g as Record<string, unknown>)[key] = previous.get(key);
+    }
+    (g as Record<string, unknown>).DOMPurify = previous.get("DOMPurify");
   };
 }
 

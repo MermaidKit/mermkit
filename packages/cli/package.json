@@ -1,6 +1,6 @@
 {
   "name": "@mermkit/cli",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "repository": {
     "type": "git",
     "url": "https://github.com/MermaidKit/mermkit.git"
@@ -19,10 +19,14 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@mermkit/core": "0.2.5",
-    "@mermkit/render": "0.2.5",
-    "@mermkit/adapters": "0.2.5",
+    "@mermkit/core": "0.2.6",
+    "@mermkit/render": "0.2.6",
+    "@mermkit/adapters": "0.2.6",
+    "@mermaid-js/mermaid-cli": "^11.12.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "dompurify": "^3.1.5",
+    "jsdom": "^24.1.0",
+    "mermaid": "^10.9.5",
     "zod": "^3.24.2"
   }
 }

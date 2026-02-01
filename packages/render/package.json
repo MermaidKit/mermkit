@@ -1,6 +1,6 @@
 {
   "name": "@mermkit/render",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "repository": {
     "type": "git",
     "url": "https://github.com/MermaidKit/mermkit.git"
@@ -18,7 +18,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@mermkit/core": "0.2.5"
+    "@mermkit/core": "0.2.6"
   },
   "optionalDependencies": {
     "dompurify": "^3.1.5",
