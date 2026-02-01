@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-02-01
+
+- Move MCP server to SDK and add data URI option
+
 ## [0.2.4] - 2026-02-01
 
 - Accept MCP arguments/input and validate payloads

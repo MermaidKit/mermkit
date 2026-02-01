@@ -11,6 +11,10 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { extractDiagrams, normalizeDiagram } from "@mermkit/core";
 import { render, renderForTerminal } from "@mermkit/render";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { ContentBlock } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 
 const PACKAGE_VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
@@ -737,141 +741,122 @@ function writeServeResponse(response: ServeResponse): void {
   stdout.write(`${JSON.stringify(response)}\n`);
 }
 
-type JsonRpcRequest = {
-  jsonrpc?: string;
-  id?: string | number;
-  method: string;
-  params?: Record<string, unknown>;
-};
-
-type JsonRpcResponse = {
-  jsonrpc: "2.0";
-  id: string | number;
-  result?: unknown;
-  error?: { code: number; message: string };
-};
-
-function writeMcpResponse(response: JsonRpcResponse): void {
-  stdout.write(`${JSON.stringify(response)}\n`);
-}
-
-function shouldRespondToId(id: unknown): id is string | number {
-  return typeof id === "string" || typeof id === "number";
-}
-
-function maybeWriteMcpResponse(
-  id: unknown,
-  response: Omit<JsonRpcResponse, "id">
-): void {
-  if (!shouldRespondToId(id)) return;
-  writeMcpResponse({ ...response, id });
-}
-
-const MCP_TOOL_NAME_MAP = new Map<string, string>();
-
-function toMcpToolName(name: string): string {
-  return name.replace(/\./g, "_");
-}
-
-function getMcpToolNameMap(): Map<string, string> {
-  if (MCP_TOOL_NAME_MAP.size === 0) {
-    for (const tool of buildToolDefinitions()) {
-      MCP_TOOL_NAME_MAP.set(toMcpToolName(tool.name), tool.name);
-    }
-  }
-  return MCP_TOOL_NAME_MAP;
-}
-
-function resolveMcpToolName(name: unknown): string | undefined {
-  if (typeof name !== "string") return undefined;
-  if (name.includes(".")) return name;
-  return getMcpToolNameMap().get(name) ?? name;
-}
-
-function buildMcpToolDefinitions(): Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> {
-  return buildToolDefinitions().map((tool) => ({
-    name: toMcpToolName(tool.name),
-    description: tool.description,
-    inputSchema: tool.parameters
-  }));
-}
-
 async function cmdMcp(): Promise<void> {
-  const rl = createInterface({ input: stdin, crlfDelay: Infinity });
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
+  const server = new McpServer({ name: "mermkit", version: PACKAGE_VERSION });
 
-    let request: JsonRpcRequest;
-    try {
-      request = JSON.parse(trimmed) as JsonRpcRequest;
-    } catch (error) {
-      stderr.write(`mcp parse error: ${errorMessage(error)}\n`);
-      continue;
-    }
+  const renderOptionsSchema = z
+    .object({
+      format: z.enum(["svg", "png", "pdf", "ascii"]).optional(),
+      theme: z.enum(["light", "dark", "custom"]).optional(),
+      scale: z.number().optional(),
+      background: z.string().optional(),
+      engine: z.string().optional(),
+      includeDataUri: z.boolean().optional()
+    })
+    .partial();
 
-    const id = request.id;
-    if (!request.method || typeof request.method !== "string") {
-      maybeWriteMcpResponse(id, {
-        jsonrpc: "2.0",
-        error: { code: -32600, message: "invalid request: missing method" }
-      });
-      continue;
-    }
+  const toolError = (error: unknown): { isError: true; content: ContentBlock[] } => ({
+    isError: true,
+    content: [{ type: "text", text: `error: ${errorMessage(error)}` }]
+  });
 
-    if (request.method === "initialize") {
-      maybeWriteMcpResponse(id, {
-        jsonrpc: "2.0",
-        result: {
-          protocolVersion: "2024-11-05",
-          capabilities: { tools: {} },
-          serverInfo: { name: "mermkit", version: PACKAGE_VERSION }
-        }
-      });
-      continue;
-    }
-
-    if (request.method === "tools/list") {
-      maybeWriteMcpResponse(id, {
-        jsonrpc: "2.0",
-        result: { tools: buildMcpToolDefinitions() }
-      });
-      continue;
-    }
-
-    if (request.method === "tools/call") {
-      const params = request.params ?? {};
-      const toolName = resolveMcpToolName((params as { name?: unknown }).name);
-      const toolInput = ((params as { input?: unknown; arguments?: unknown }).input ??
-        (params as { arguments?: unknown }).arguments ??
-        {}) as Record<string, unknown>;
-
-      try {
-        if (!toolName) {
-          throw new Error("invalid request: tools/call requires a tool name");
-        }
-        const content = await executeMcpTool(toolName, toolInput);
-        maybeWriteMcpResponse(id, { jsonrpc: "2.0", result: { content } });
-      } catch (error) {
-        maybeWriteMcpResponse(id, {
-          jsonrpc: "2.0",
-          result: {
-            content: [{ type: "text", text: `error: ${errorMessage(error)}` }],
-            isError: true
-          }
-        });
+  server.registerTool(
+    "mermkit_render",
+    {
+      description: "Render a Mermaid diagram to svg/png/pdf/ascii.",
+      inputSchema: {
+        diagram: z.string(),
+        options: renderOptionsSchema.optional()
       }
-      continue;
+    },
+    async (input) => {
+      try {
+        return { content: await executeMcpTool("mermkit.render", input as Record<string, unknown>) };
+      } catch (error) {
+        return toolError(error);
+      }
     }
+  );
 
-    maybeWriteMcpResponse(id, {
-      jsonrpc: "2.0",
-      error: { code: -32601, message: `method not found: ${request.method}` }
-    });
-  }
+  server.registerTool(
+    "mermkit_renderBatch",
+    {
+      description: "Render multiple Mermaid diagrams in a single request.",
+      inputSchema: {
+        diagrams: z.array(
+          z.object({
+            id: z.string().optional(),
+            source: z.string()
+          })
+        ),
+        options: renderOptionsSchema.optional()
+      }
+    },
+    async (input) => {
+      try {
+        return { content: await executeMcpTool("mermkit.renderBatch", input as Record<string, unknown>) };
+      } catch (error) {
+        return toolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "mermkit_extract",
+    {
+      description: "Extract Mermaid blocks from markdown.",
+      inputSchema: {
+        markdown: z.string()
+      }
+    },
+    async (input) => {
+      try {
+        return { content: await executeMcpTool("mermkit.extract", input as Record<string, unknown>) };
+      } catch (error) {
+        return toolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "mermkit_term",
+    {
+      description: "Render a Mermaid diagram for terminal display.",
+      inputSchema: {
+        diagram: z.string()
+      }
+    },
+    async (input) => {
+      try {
+        return { content: await executeMcpTool("mermkit.term", input as Record<string, unknown>) };
+      } catch (error) {
+        return toolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "mermkit_schema",
+    {
+      description: "Return tool schema for mermkit actions.",
+      inputSchema: {
+        format: z.enum(["generic", "openai"]).optional()
+      }
+    },
+    async (input) => {
+      try {
+        return { content: await executeMcpTool("mermkit.schema", input as Record<string, unknown>) };
+      } catch (error) {
+        return toolError(error);
+      }
+    }
+  );
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 }
 
-async function executeMcpTool(name: string, input: Record<string, unknown>): Promise<Array<{ type: string; [key: string]: unknown }>> {
+async function executeMcpTool(name: string, input: Record<string, unknown>): Promise<ContentBlock[]> {
   if (name === "mermkit.render") {
     if (typeof input.diagram !== "string") {
       throw new Error("diagram is required and must be a string");
@@ -891,7 +876,12 @@ async function executeMcpTool(name: string, input: Record<string, unknown>): Pro
       return [{ type: "text", text: new TextDecoder().decode(result.bytes) }];
     }
     const mimeType = result.mime ?? "application/octet-stream";
-    return [{ type: "image", data: Buffer.from(result.bytes).toString("base64"), mimeType }];
+    const data = Buffer.from(result.bytes).toString("base64");
+    const content: ContentBlock[] = [{ type: "image", data, mimeType }];
+    if (options.includeDataUri === true) {
+      content.push({ type: "text", text: `![mermkit diagram](data:${mimeType};base64,${data})` });
+    }
+    return content;
   }
 
   if (name === "mermkit.renderBatch") {
@@ -900,7 +890,7 @@ async function executeMcpTool(name: string, input: Record<string, unknown>): Pro
     }
     const diagrams = input.diagrams as Array<{ id?: string; source?: string }>;
     const options = (input.options ?? {}) as Record<string, unknown>;
-    const results: Array<{ type: string; [key: string]: unknown }> = [];
+    const results: ContentBlock[] = [];
     for (let i = 0; i < diagrams.length; i++) {
       const item = diagrams[i];
       const diagramId = item.id ?? `diagram-${i + 1}`;
@@ -921,7 +911,11 @@ async function executeMcpTool(name: string, input: Record<string, unknown>): Pro
           results.push({ type: "text", text: `[${diagramId}]\n${new TextDecoder().decode(result.bytes)}` });
         } else {
           const mimeType = result.mime ?? "application/octet-stream";
-          results.push({ type: "image", data: Buffer.from(result.bytes).toString("base64"), mimeType });
+          const data = Buffer.from(result.bytes).toString("base64");
+          results.push({ type: "image", data, mimeType });
+          if (options.includeDataUri === true) {
+            results.push({ type: "text", text: `[${diagramId}] ![mermkit diagram](data:${mimeType};base64,${data})` });
+          }
         }
       } catch (error) {
         results.push({ type: "text", text: `[${diagramId}] error: ${errorMessage(error)}` });
@@ -1046,7 +1040,8 @@ function buildToolDefinitions(): Array<{ name: string; description: string; para
       theme: { type: "string", enum: ["light", "dark", "custom"] },
       scale: { type: "number" },
       background: { type: "string" },
-      engine: { type: "string" }
+      engine: { type: "string" },
+      includeDataUri: { type: "boolean", description: "Include a data URI text block for chat rendering." }
     }
   };
 
