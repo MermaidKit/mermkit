@@ -744,13 +744,21 @@ type JsonRpcRequest = {
 
 type JsonRpcResponse = {
   jsonrpc: "2.0";
-  id: string | number | null;
+  id: string | number;
   result?: unknown;
   error?: { code: number; message: string };
 };
 
 function writeMcpResponse(response: JsonRpcResponse): void {
   stdout.write(`${JSON.stringify(response)}\n`);
+}
+
+function maybeWriteMcpResponse(
+  id: string | number | undefined,
+  response: Omit<JsonRpcResponse, "id">
+): void {
+  if (typeof id !== "string" && typeof id !== "number") return;
+  writeMcpResponse({ ...response, id });
 }
 
 function buildMcpToolDefinitions(): Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> {
@@ -771,20 +779,14 @@ async function cmdMcp(): Promise<void> {
     try {
       request = JSON.parse(trimmed) as JsonRpcRequest;
     } catch (error) {
-      writeMcpResponse({
-        jsonrpc: "2.0",
-        id: null,
-        error: { code: -32700, message: `parse error: ${errorMessage(error)}` }
-      });
       continue;
     }
 
-    const id = request.id ?? null;
+    const id = request.id;
 
     if (request.method === "initialize") {
-      writeMcpResponse({
+      maybeWriteMcpResponse(id, {
         jsonrpc: "2.0",
-        id,
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
@@ -795,9 +797,8 @@ async function cmdMcp(): Promise<void> {
     }
 
     if (request.method === "tools/list") {
-      writeMcpResponse({
+      maybeWriteMcpResponse(id, {
         jsonrpc: "2.0",
-        id,
         result: { tools: buildMcpToolDefinitions() }
       });
       continue;
@@ -810,11 +811,10 @@ async function cmdMcp(): Promise<void> {
 
       try {
         const content = await executeMcpTool(toolName, toolInput);
-        writeMcpResponse({ jsonrpc: "2.0", id, result: { content } });
+        maybeWriteMcpResponse(id, { jsonrpc: "2.0", result: { content } });
       } catch (error) {
-        writeMcpResponse({
+        maybeWriteMcpResponse(id, {
           jsonrpc: "2.0",
-          id,
           result: {
             content: [{ type: "text", text: `error: ${errorMessage(error)}` }],
             isError: true
@@ -824,9 +824,8 @@ async function cmdMcp(): Promise<void> {
       continue;
     }
 
-    writeMcpResponse({
+    maybeWriteMcpResponse(id, {
       jsonrpc: "2.0",
-      id,
       error: { code: -32601, message: `method not found: ${request.method}` }
     });
   }
