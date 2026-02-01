@@ -45,10 +45,10 @@ mermkit bridges this gap. It takes Mermaid source and produces the right artifac
 
 ```bash
 # npm — global install
-npm install -g @mermkit/cli
+npm install -g @mermkit/cli@latest
 
 # npx — run without installing
-npx @mermkit/cli render --in diagram.mmd --out diagram.svg
+npx @mermkit/cli@latest render --in diagram.mmd --out diagram.svg
 
 # pip — Python wrapper
 pip install mermkit
@@ -203,7 +203,7 @@ mermkit ships an MCP server over stdio. Any MCP-compatible host can use it direc
   "mcpServers": {
     "mermkit": {
       "command": "npx",
-      "args": ["-y", "@mermkit/cli@0.2.3", "mcp"]
+      "args": ["-y", "@mermkit/cli@latest", "mcp"]
     }
   }
 }
