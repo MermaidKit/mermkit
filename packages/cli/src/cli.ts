@@ -842,7 +842,9 @@ async function cmdMcp(): Promise<void> {
     if (request.method === "tools/call") {
       const params = request.params ?? {};
       const toolName = resolveMcpToolName((params as { name?: unknown }).name);
-      const toolInput = (params.input ?? {}) as Record<string, unknown>;
+      const toolInput = ((params as { input?: unknown; arguments?: unknown }).input ??
+        (params as { arguments?: unknown }).arguments ??
+        {}) as Record<string, unknown>;
 
       try {
         if (!toolName) {
@@ -871,7 +873,10 @@ async function cmdMcp(): Promise<void> {
 
 async function executeMcpTool(name: string, input: Record<string, unknown>): Promise<Array<{ type: string; [key: string]: unknown }>> {
   if (name === "mermkit.render") {
-    const source = input.diagram as string;
+    if (typeof input.diagram !== "string") {
+      throw new Error("diagram is required and must be a string");
+    }
+    const source = input.diagram;
     const options = (input.options ?? {}) as Record<string, unknown>;
     const diagram = { id: "diagram-1", source: normalizeDiagram(source) };
     const result = await render(diagram, {
@@ -885,18 +890,24 @@ async function executeMcpTool(name: string, input: Record<string, unknown>): Pro
     if (format === "ascii") {
       return [{ type: "text", text: new TextDecoder().decode(result.bytes) }];
     }
-    const mediaType = result.mime;
-    return [{ type: "image", source: { type: "base64", mediaType, data: Buffer.from(result.bytes).toString("base64") } }];
+    const mimeType = result.mime ?? "application/octet-stream";
+    return [{ type: "image", data: Buffer.from(result.bytes).toString("base64"), mimeType }];
   }
 
   if (name === "mermkit.renderBatch") {
-    const diagrams = input.diagrams as Array<{ id?: string; source: string }>;
+    if (!Array.isArray(input.diagrams)) {
+      throw new Error("diagrams is required and must be an array");
+    }
+    const diagrams = input.diagrams as Array<{ id?: string; source?: string }>;
     const options = (input.options ?? {}) as Record<string, unknown>;
     const results: Array<{ type: string; [key: string]: unknown }> = [];
     for (let i = 0; i < diagrams.length; i++) {
       const item = diagrams[i];
       const diagramId = item.id ?? `diagram-${i + 1}`;
       try {
+        if (typeof item.source !== "string") {
+          throw new Error("diagram source must be a string");
+        }
         const diagram = { id: diagramId, source: normalizeDiagram(item.source) };
         const result = await render(diagram, {
           format: (options.format as "svg" | "png" | "pdf" | "ascii") ?? "svg",
@@ -909,7 +920,8 @@ async function executeMcpTool(name: string, input: Record<string, unknown>): Pro
         if (format === "ascii") {
           results.push({ type: "text", text: `[${diagramId}]\n${new TextDecoder().decode(result.bytes)}` });
         } else {
-          results.push({ type: "image", source: { type: "base64", mediaType: result.mime, data: Buffer.from(result.bytes).toString("base64") } });
+          const mimeType = result.mime ?? "application/octet-stream";
+          results.push({ type: "image", data: Buffer.from(result.bytes).toString("base64"), mimeType });
         }
       } catch (error) {
         results.push({ type: "text", text: `[${diagramId}] error: ${errorMessage(error)}` });
@@ -919,14 +931,20 @@ async function executeMcpTool(name: string, input: Record<string, unknown>): Pro
   }
 
   if (name === "mermkit.extract") {
-    const markdown = input.markdown as string;
+    if (typeof input.markdown !== "string") {
+      throw new Error("markdown is required and must be a string");
+    }
+    const markdown = input.markdown;
     const diagrams = extractDiagrams(markdown);
     const text = diagrams.map((d) => `[${d.id}]\n${d.source}`).join("\n\n");
     return [{ type: "text", text: text || "no diagrams found" }];
   }
 
   if (name === "mermkit.term") {
-    const source = input.diagram as string;
+    if (typeof input.diagram !== "string") {
+      throw new Error("diagram is required and must be a string");
+    }
+    const source = input.diagram;
     const diagram = { id: "diagram-1", source: normalizeDiagram(source) };
     const result = await renderForTerminal(diagram, detectCapabilities());
     return [{ type: "text", text: result.text ?? "unable to render for terminal" }];
