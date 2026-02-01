@@ -17,7 +17,11 @@ for (const dir of packageDirs) {
     continue;
   }
   console.log(`publishing ${pkg.name}...`);
-  const res = spawnSync("npm", ["publish", "--access", "public", "--provenance"], {
+  const args = ["publish", "--access", "public"];
+  if (process.env.NPM_PUBLISH_PROVENANCE === "1" || process.env.CI === "true") {
+    args.push("--provenance");
+  }
+  const res = spawnSync("npm", args, {
     cwd: dir,
     stdio: "inherit"
   });
