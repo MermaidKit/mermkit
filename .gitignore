@@ -10,3 +10,5 @@ __pycache__/
 .env.*
 bindings/python/dist/
 bindings/rust/target/
+
+.claude/
