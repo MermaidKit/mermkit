@@ -753,14 +753,24 @@ async function renderDiagram(diagram: { id: string; source: string }, format: st
   const borderPadding = parseNumber(getFlag(flags, "border-padding"));
   if (borderPadding !== undefined) asciiOptions.boxBorderPadding = borderPadding;
 
-  return render(diagram as { id: string; source: string }, {
-    format: format as "svg" | "png" | "pdf" | "ascii",
-    theme: (getFlag(flags, "theme") as "light" | "dark" | "custom" | undefined) ?? undefined,
-    scale: parseNumber(getFlag(flags, "scale")),
-    background: getFlag(flags, "background") ?? "transparent",
-    engine: getFlag(flags, "engine") ?? undefined,
-    ascii: asciiOptions
-  });
+  try {
+    return await render(diagram as { id: string; source: string }, {
+      format: format as "svg" | "png" | "pdf" | "ascii",
+      theme: (getFlag(flags, "theme") as "light" | "dark" | "custom" | undefined) ?? undefined,
+      scale: parseNumber(getFlag(flags, "scale")),
+      background: getFlag(flags, "background") ?? "transparent",
+      engine: getFlag(flags, "engine") ?? undefined,
+      ascii: asciiOptions
+    });
+  } catch (error) {
+    if (format === "ascii" || format === "term") throw error;
+    const fallback = await render(diagram as { id: string; source: string }, {
+      format: "ascii",
+      ascii: asciiOptions
+    });
+    fallback.warnings.unshift(`render failed; falling back to ASCII: ${errorMessage(error)}`);
+    return fallback;
+  }
 }
 
 async function readInput(flags: Flags): Promise<string> {
