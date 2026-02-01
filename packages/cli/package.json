@@ -1,6 +1,6 @@
 {
   "name": "@mermkit/cli",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "repository": {
     "type": "git",
     "url": "https://github.com/MermaidKit/mermkit.git"
@@ -19,8 +19,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@mermkit/core": "0.2.3",
-    "@mermkit/render": "0.2.3",
-    "@mermkit/adapters": "0.2.3"
+    "@mermkit/core": "0.2.4",
+    "@mermkit/render": "0.2.4",
+    "@mermkit/adapters": "0.2.4"
   }
 }

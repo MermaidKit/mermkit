@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-02-01
+
+- Accept MCP arguments/input and validate payloads
+- Emit MCP image content with `data` + `mimeType` fields
+
 ## [0.2.3] - 2026-02-01
 
 - Harden MCP request handling
@@ -26,4 +31,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-02-01
 
 - Initial release
-
