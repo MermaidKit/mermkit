@@ -209,7 +209,7 @@ mermkit ships an MCP server over stdio. Any MCP-compatible host (Claude Desktop,
 }
 ```
 
-Once connected, the host gains access to the same five tools listed above (`mermkit.render`, `mermkit.renderBatch`, `mermkit.extract`, `mermkit.term`, `mermkit.schema`). The MCP server reuses the same rendering and extraction logic as `serve` — it is a format translation layer (JSON-RPC 2.0) with no additional dependencies.
+Once connected, the host gains access to the same five tools listed above. In MCP hosts that restrict tool names, they are exposed as `mermkit_render`, `mermkit_renderBatch`, `mermkit_extract`, `mermkit_term`, and `mermkit_schema`. The MCP server reuses the same rendering and extraction logic as `serve` — it is a format translation layer (JSON-RPC 2.0) with no additional dependencies.
 
 ## Preview server
 

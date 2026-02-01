@@ -761,9 +761,29 @@ function maybeWriteMcpResponse(
   writeMcpResponse({ ...response, id });
 }
 
+const MCP_TOOL_NAME_MAP = new Map<string, string>();
+
+function toMcpToolName(name: string): string {
+  return name.replace(/\./g, "_");
+}
+
+function getMcpToolNameMap(): Map<string, string> {
+  if (MCP_TOOL_NAME_MAP.size === 0) {
+    for (const tool of buildToolDefinitions()) {
+      MCP_TOOL_NAME_MAP.set(toMcpToolName(tool.name), tool.name);
+    }
+  }
+  return MCP_TOOL_NAME_MAP;
+}
+
+function resolveMcpToolName(name: string): string {
+  if (name.includes(".")) return name;
+  return getMcpToolNameMap().get(name) ?? name;
+}
+
 function buildMcpToolDefinitions(): Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> {
   return buildToolDefinitions().map((tool) => ({
-    name: tool.name,
+    name: toMcpToolName(tool.name),
     description: tool.description,
     inputSchema: tool.parameters
   }));
@@ -806,7 +826,7 @@ async function cmdMcp(): Promise<void> {
 
     if (request.method === "tools/call") {
       const params = request.params ?? {};
-      const toolName = params.name as string;
+      const toolName = resolveMcpToolName(params.name as string);
       const toolInput = (params.input ?? {}) as Record<string, unknown>;
 
       try {
