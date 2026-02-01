@@ -50,6 +50,9 @@ async function main(): Promise<void> {
     case "tool-schema":
       await cmdToolSchema(flags);
       return;
+    case "mcp":
+      await cmdMcp();
+      return;
     default:
       stderr.write(`unknown command: ${command}\n`);
       printHelp();
@@ -334,6 +337,7 @@ async function cmdPreview(flags: Flags): Promise<void> {
           <option value="">auto</option>
           <option value="embedded">embedded</option>
           <option value="mmdc">mmdc</option>
+          <option value="ascii">ascii</option>
           <option value="stub">stub</option>
         </select>
       </label>
@@ -731,6 +735,175 @@ function writeServeResponse(response: ServeResponse): void {
   stdout.write(`${JSON.stringify(response)}\n`);
 }
 
+type JsonRpcRequest = {
+  jsonrpc?: string;
+  id?: string | number;
+  method: string;
+  params?: Record<string, unknown>;
+};
+
+type JsonRpcResponse = {
+  jsonrpc: "2.0";
+  id: string | number | null;
+  result?: unknown;
+  error?: { code: number; message: string };
+};
+
+function writeMcpResponse(response: JsonRpcResponse): void {
+  stdout.write(`${JSON.stringify(response)}\n`);
+}
+
+function buildMcpToolDefinitions(): Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> {
+  return buildToolDefinitions().map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.parameters
+  }));
+}
+
+async function cmdMcp(): Promise<void> {
+  const rl = createInterface({ input: stdin, crlfDelay: Infinity });
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let request: JsonRpcRequest;
+    try {
+      request = JSON.parse(trimmed) as JsonRpcRequest;
+    } catch (error) {
+      writeMcpResponse({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32700, message: `parse error: ${errorMessage(error)}` }
+      });
+      continue;
+    }
+
+    const id = request.id ?? null;
+
+    if (request.method === "initialize") {
+      writeMcpResponse({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          serverInfo: { name: "mermkit", version: "0.1.0" }
+        }
+      });
+      continue;
+    }
+
+    if (request.method === "tools/list") {
+      writeMcpResponse({
+        jsonrpc: "2.0",
+        id,
+        result: { tools: buildMcpToolDefinitions() }
+      });
+      continue;
+    }
+
+    if (request.method === "tools/call") {
+      const params = request.params ?? {};
+      const toolName = params.name as string;
+      const toolInput = (params.input ?? {}) as Record<string, unknown>;
+
+      try {
+        const content = await executeMcpTool(toolName, toolInput);
+        writeMcpResponse({ jsonrpc: "2.0", id, result: { content } });
+      } catch (error) {
+        writeMcpResponse({
+          jsonrpc: "2.0",
+          id,
+          result: {
+            content: [{ type: "text", text: `error: ${errorMessage(error)}` }],
+            isError: true
+          }
+        });
+      }
+      continue;
+    }
+
+    writeMcpResponse({
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32601, message: `method not found: ${request.method}` }
+    });
+  }
+}
+
+async function executeMcpTool(name: string, input: Record<string, unknown>): Promise<Array<{ type: string; [key: string]: unknown }>> {
+  if (name === "mermkit.render") {
+    const source = input.diagram as string;
+    const options = (input.options ?? {}) as Record<string, unknown>;
+    const diagram = { id: "diagram-1", source: normalizeDiagram(source) };
+    const result = await render(diagram, {
+      format: (options.format as "svg" | "png" | "pdf" | "ascii") ?? "svg",
+      theme: options.theme as "light" | "dark" | "custom" | undefined,
+      scale: options.scale as number | undefined,
+      background: (options.background as string) ?? "transparent",
+      engine: options.engine as string | undefined
+    });
+    const format = (options.format as string) ?? "svg";
+    if (format === "ascii") {
+      return [{ type: "text", text: new TextDecoder().decode(result.bytes) }];
+    }
+    const mediaType = result.mime;
+    return [{ type: "image", source: { type: "base64", mediaType, data: Buffer.from(result.bytes).toString("base64") } }];
+  }
+
+  if (name === "mermkit.renderBatch") {
+    const diagrams = input.diagrams as Array<{ id?: string; source: string }>;
+    const options = (input.options ?? {}) as Record<string, unknown>;
+    const results: Array<{ type: string; [key: string]: unknown }> = [];
+    for (let i = 0; i < diagrams.length; i++) {
+      const item = diagrams[i];
+      const diagramId = item.id ?? `diagram-${i + 1}`;
+      try {
+        const diagram = { id: diagramId, source: normalizeDiagram(item.source) };
+        const result = await render(diagram, {
+          format: (options.format as "svg" | "png" | "pdf" | "ascii") ?? "svg",
+          theme: options.theme as "light" | "dark" | "custom" | undefined,
+          scale: options.scale as number | undefined,
+          background: (options.background as string) ?? "transparent",
+          engine: options.engine as string | undefined
+        });
+        const format = (options.format as string) ?? "svg";
+        if (format === "ascii") {
+          results.push({ type: "text", text: `[${diagramId}]\n${new TextDecoder().decode(result.bytes)}` });
+        } else {
+          results.push({ type: "image", source: { type: "base64", mediaType: result.mime, data: Buffer.from(result.bytes).toString("base64") } });
+        }
+      } catch (error) {
+        results.push({ type: "text", text: `[${diagramId}] error: ${errorMessage(error)}` });
+      }
+    }
+    return results;
+  }
+
+  if (name === "mermkit.extract") {
+    const markdown = input.markdown as string;
+    const diagrams = extractDiagrams(markdown);
+    const text = diagrams.map((d) => `[${d.id}]\n${d.source}`).join("\n\n");
+    return [{ type: "text", text: text || "no diagrams found" }];
+  }
+
+  if (name === "mermkit.term") {
+    const source = input.diagram as string;
+    const diagram = { id: "diagram-1", source: normalizeDiagram(source) };
+    const result = await renderForTerminal(diagram, detectCapabilities());
+    return [{ type: "text", text: result.text ?? "unable to render for terminal" }];
+  }
+
+  if (name === "mermkit.schema") {
+    const format = (input.format as string) ?? "generic";
+    const schema = buildToolSchema(format);
+    return [{ type: "text", text: JSON.stringify(schema, null, 2) }];
+  }
+
+  throw new Error(`unknown tool: ${name}`);
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
@@ -1047,13 +1220,15 @@ function printHelp(): void {
       `  ${name} preview --in diagram.mmd --port 7070\n\n` +
       `  ${name} tool-schema --format openai\n\n` +
       `  ${name} doctor\n` +
-      `  ${name} serve  (JSON over stdin/stdout)\n\n` +
+      `  ${name} serve  (JSON over stdin/stdout)\n` +
+      `  ${name} mcp    (Model Context Protocol server over stdio)\n\n` +
       `Commands:\n` +
       `  render   Render a diagram to svg/png/pdf/ascii\n` +
       `  extract  Extract fenced mermaid blocks from markdown\n` +
       `  term     Terminal-friendly rendering\n` +
       `  doctor   Report engine and terminal capabilities\n` +
       `  serve    JSON IPC mode for wrappers\n` +
+      `  mcp      Model Context Protocol server over stdio\n` +
       `  preview  Local preview server\n\n` +
       `  tool-schema  Print tool schema for agents\n\n` +
       `Flags:\n` +

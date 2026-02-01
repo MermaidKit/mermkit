@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>mermkit — Mermaid rendering for terminals, chats, and CI</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-alt: #f4f6f8;
+      --bg-card: #ffffff;
+      --border: #e2e6ea;
+      --text: #1a1a1a;
+      --text-muted: #6b7280;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --code-bg: #f0f2f5;
+      --code-text: #1a1a1a;
+      --tab-active-bg: #4f46e5;
+      --tab-active-text: #ffffff;
+      --tab-bg: #eef0f3;
+      --tab-text: #4a5568;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1117;
+        --bg-alt: #161821;
+        --bg-card: #1a1d2e;
+        --border: #2a2d3e;
+        --text: #e8eaed;
+        --text-muted: #8b91a0;
+        --accent: #6366f1;
+        --accent-hover: #818cf8;
+        --code-bg: #12141f;
+        --code-text: #c5c9d4;
+        --tab-active-bg: #6366f1;
+        --tab-active-text: #ffffff;
+        --tab-bg: #1e2035;
+        --tab-text: #8b91a0;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Layout ─── */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ─── Nav ─── */
+    nav {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    nav .logo {
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text);
+      text-decoration: none;
+    }
+    nav .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      margin-left: 20px;
+      transition: color 0.15s;
+    }
+    nav .nav-links a:hover { color: var(--accent); }
+
+    /* ─── Hero ─── */
+    .hero {
+      text-align: center;
+      padding: 80px 0 64px;
+    }
+    .hero img {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .hero .tagline {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 32px;
+    }
+    .hero .cta-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── Callout ─── */
+    .callout {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin: 0 0 64px;
+    }
+    .callout h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .callout p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    /* ─── Section headings ─── */
+    .section { padding: 0 0 64px; }
+    .section h2 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .section .subtitle {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin-bottom: 32px;
+    }
+
+    /* ─── Benefit cards 2×2 ─── */
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .benefit-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .benefit-card .icon { font-size: 22px; margin-bottom: 10px; }
+    .benefit-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .benefit-card p { font-size: 14px; color: var(--text-muted); }
+
+    /* ─── Feature grid 2×3 ─── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .feature-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .feature-card p { font-size: 13px; color: var(--text-muted); }
+
+    /* ─── Tabs ─── */
+    .tabs { margin-bottom: 12px; display: flex; gap: 4px; }
+    .tab-btn {
+      background: var(--tab-bg);
+      color: var(--tab-text);
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+    .tab-btn.active {
+      background: var(--tab-active-bg);
+      color: var(--tab-active-text);
+    }
+    .tab-btn:hover:not(.active) { background: var(--border); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ─── Code blocks ─── */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+      overflow-x: auto;
+      margin-bottom: 16px;
+    }
+    code {
+      font-family: ui-monospace, "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+      font-size: 13px;
+      color: var(--code-text);
+      line-height: 1.7;
+    }
+    /* inline code */
+    p code, li code, td code, th code {
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    /* ─── Install blocks ─── */
+    .install-block { margin-bottom: 12px; }
+    .install-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    /* ─── Engine table ─── */
+    .engine-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .engine-table th {
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border);
+      padding: 8px 12px;
+    }
+    .engine-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .engine-table tr:last-child td { border-bottom: none; }
+
+    /* ─── Footer ─── */
+    footer {
+      background: var(--bg-alt);
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      margin-top: 16px;
+    }
+    footer .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    footer .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+    footer .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.15s;
+    }
+    footer .footer-links a:hover { color: var(--accent); }
+    footer .footer-copy { font-size: 13px; color: var(--text-muted); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 36px; }
+      .benefits-grid, .features-grid { grid-template-columns: 1fr; }
+      .callout { padding: 20px; }
+      footer .container { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="container">
+    <a href="#" class="logo">mermkit</a>
+    <div class="nav-links">
+      <a href="#install">Install</a>
+      <a href="#engines">Engines</a>
+      <a href="https://github.com/MermaidKit/mermkit">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <img src="../docs/assets/mermkit-logo.svg" alt="mermkit" />
+    <h1>mermkit</h1>
+    <p class="tagline">Mermaid rendering for terminals, chats, and CI — with agent-friendly tooling.</p>
+    <div class="cta-row">
+      <a href="#install" class="btn btn-primary">Install</a>
+      <a href="https://github.com/MermaidKit/mermkit" class="btn btn-outline">GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- What is mermkit? -->
+<div class="container">
+  <div class="callout">
+    <h2>What is mermkit?</h2>
+    <p>mermkit orchestrates Mermaid rendering engines — turning their output into the right artifact for wherever you need it: SVG files for docs, inline images for terminals, base64 for chat APIs, PNGs for CI. It wraps engines like <code>mermaid.js</code> and the Mermaid CLI rather than reimplementing them.</p>
+  </div>
+</div>
+
+<!-- Benefits -->
+<section class="section">
+  <div class="container">
+    <h2>Why use it?</h2>
+    <p class="subtitle">Mermaid only renders natively in a browser. mermkit bridges every other environment.</p>
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="icon">&#128196;</div>
+        <h3>Terminal-native</h3>
+        <p>See diagrams directly in your terminal via inline images (Kitty, iTerm2, WezTerm) or ASCII fallback — no browser needed.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="icon">&#128172;</div>
+        <h3>Chat-ready</h3>
+        <p>Post rendered previews to Slack, Discord, or GitHub. Adapters handle base64 encoding and platform-specific payload shape for you.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="icon">&#128276;</div>
+        <h3>Build artifacts</h3>
+        <p>Generate diagram images as part of your build. If the source didn't change, the output file doesn't change.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="icon">&#129302;</div>
+        <h3>Agent-friendly</h3>
+        <p>Give AI agents a rendering tool they can call via JSON IPC, batch requests, OpenAI tool schemas, or MCP.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section">
+  <div class="container">
+    <h2>Features</h2>
+    <p class="subtitle">Everything you need to turn Mermaid source into usable artifacts.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <h3>Multi-engine rendering</h3>
+        <p>Pluggable engine registry. Use <code>embedded</code>, <code>mmdc</code>, <code>ascii</code>, or register your own.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Four output formats</h3>
+        <p>SVG, PNG, PDF, and ASCII. Pick the right format for your environment.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Terminal-native</h3>
+        <p>Inline image protocols (Kitty, iTerm2, WezTerm) with automatic ASCII/Unicode fallback.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Chat-ready adapters</h3>
+        <p>Format rendered diagrams for Slack, Discord, and GitHub in one call.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Agent-friendly</h3>
+        <p>JSON IPC server, batch rendering, OpenAI tool schemas, and an MCP server over stdio.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Multilingual bindings</h3>
+        <p>First-class wrappers for Python, Go, and Rust. Each one spawns <code>serve</code> under the hood.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Code Examples (Tabbed) -->
+<section class="section">
+  <div class="container">
+    <h2>Examples</h2>
+    <p class="subtitle">Get started in three lines.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" role="tab" data-tab="cli">CLI</button>
+      <button class="tab-btn" role="tab" data-tab="python">Python</button>
+      <button class="tab-btn" role="tab" data-tab="typescript">TypeScript</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="cli">
+      <pre><code># Render a diagram to SVG
+mermkit render --in diagram.mmd --out diagram.svg
+
+# Render from stdin to PNG
+echo "graph TD; A--&gt;B" | mermkit render --stdin --format png --out out.png
+
+# ASCII output in the terminal
+mermkit render --in diagram.mmd --format ascii</code></pre>
+    </div>
+
+    <div class="tab-panel" data-panel="python">
+      <pre><code>from mermkit import MermkitClient
+
+client = MermkitClient()
+client.start()
+result = client.render("graph TD; A--&gt;B", format="svg")
+client.close()</code></pre>
+    </div>
+
+    <div class="tab-panel" data-panel="typescript">
+      <pre><code>import { render } from "@mermkit/render";
+
+const result = await render(
+  { id: "my-diagram", source: "graph TD; A--&gt;B" },
+  { format: "svg" }
+);
+// result.bytes — Uint8Array of SVG</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- Install -->
+<section class="section" id="install">
+  <div class="container">
+    <h2>Install</h2>
+    <p class="subtitle">Choose your package manager.</p>
+
+    <div class="install-block">
+      <div class="install-label">npm</div>
+      <pre><code>npm install -g @mermkit/cli</code></pre>
+    </div>
+    <div class="install-block">
+      <div class="install-label">npx</div>
+      <pre><code>npx @mermkit/cli render --in diagram.mmd --out diagram.svg</code></pre>
+    </div>
+    <div class="install-block">
+      <div class="install-label">pip</div>
+      <pre><code>pip install mermkit</code></pre>
+    </div>
+    <div class="install-block">
+      <div class="install-label">cargo</div>
+      <pre><code>cargo install mermkit</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- Engine Comparison -->
+<section class="section" id="engines">
+  <div class="container">
+    <h2>Rendering engines</h2>
+    <p class="subtitle">mermkit is engine-agnostic. It tries engines in priority order when set to <code>auto</code>.</p>
+    <table class="engine-table">
+      <thead>
+        <tr>
+          <th>Engine</th>
+          <th>What it uses</th>
+          <th>Formats</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>embedded</code> (default)</td>
+          <td><code>mermaid</code> + <code>jsdom</code>, in-process</td>
+          <td>SVG, PNG, PDF</td>
+          <td>Scale option not yet implemented</td>
+        </tr>
+        <tr>
+          <td><code>mmdc</code></td>
+          <td><code>@mermaid-js/mermaid-cli</code> subprocess</td>
+          <td>SVG, PNG, PDF</td>
+          <td>Set <code>MERMKIT_MMDC_PATH</code> for a custom binary</td>
+        </tr>
+        <tr>
+          <td><code>ascii</code></td>
+          <td>Custom TypeScript renderer</td>
+          <td>ASCII text</td>
+          <td>Flowcharts and sequence diagrams; skipped in <code>auto</code> mode</td>
+        </tr>
+        <tr>
+          <td><code>stub</code></td>
+          <td>Placeholder</td>
+          <td>SVG</td>
+          <td>Test double only — returns source as text, not a real diagram</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/MermaidKit/mermkit">GitHub</a>
+      <a href="https://github.com/MermaidKit/mermkit/tree/main/docs">Docs</a>
+      <a href="https://www.npmjs.com/package/@mermkit/cli">npm</a>
+      <a href="https://pypi.org/project/mermkit/">PyPI</a>
+      <a href="https://crates.io/crates/mermkit">crates.io</a>
+      <a href="https://github.com/MermaidKit/mermkit/blob/main/LICENSE">License</a>
+    </div>
+    <div class="footer-copy">MIT &copy; MermaidKit</div>
+  </div>
+</footer>
+
+<!-- Tab switcher (vanilla JS, ~20 lines) -->
+<script>
+(function () {
+  const tabs = document.querySelectorAll(".tab-btn");
+  tabs.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const target = btn.dataset.tab;
+      tabs.forEach(function (t) { t.classList.remove("active"); });
+      btn.classList.add("active");
+      document.querySelectorAll(".tab-panel").forEach(function (panel) {
+        panel.classList.toggle("active", panel.dataset.panel === target);
+      });
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

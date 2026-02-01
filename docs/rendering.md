@@ -21,6 +21,13 @@ Set `MERMKIT_MMDC_PATH` to point to a custom binary.
 ## Stub
 Produces a placeholder SVG with the Mermaid source as text. Useful for early integration.
 
+## ASCII
+A pure-TypeScript ASCII/Unicode renderer. Supports flowcharts (LR and TD directions) and sequence diagrams. Outputs box-drawing characters by default; pass `--ascii` on the CLI for plain ASCII (`+`, `-`, `|`) mode.
+
+This engine is skipped in `auto` mode. Request it explicitly:
+- CLI: `--engine ascii` or `--format ascii`
+- API: `{ engine: "ascii" }` or `{ format: "ascii" }`
+
 ## Custom engines
 
 Register your own engine:

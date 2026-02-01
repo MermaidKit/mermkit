@@ -277,7 +277,7 @@ async function renderPngFromSvg(svg: string): Promise<RenderResult> {
 }
 
 async function renderWithStub(diagram: Diagram, options: RenderOptions): Promise<RenderResult> {
-  const warnings = ["stub renderer: Mermaid rendering not implemented yet"];
+  const warnings = ["stub renderer: this is a test double, not a real renderer"];
   if (options.format === "svg") {
     const svg = renderStubSvg(diagram.source, options);
     return {
